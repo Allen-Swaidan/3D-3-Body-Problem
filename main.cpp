@@ -13,6 +13,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void ProcessInput(GLFWwindow *window);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+std::vector<glm::vec3> acceleraton(glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec3 m);
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -41,7 +42,7 @@ int main()
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH*1.5, SCR_HEIGHT*1.5, "Free Camera", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH*1.5, SCR_HEIGHT*1.5, "3 Body Problem", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
@@ -212,11 +213,11 @@ int main()
 
     glm::vec3 backgroundCubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 spherePositions[] = {
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 5.0f, 0.0f),
-        glm::vec3(5.0f, 0.0f, 0.0f)
+        glm::vec3(1.0f, 1.0f, 1.0f),
+        glm::vec3(3.0f, 5.0f, 3.0f),
+        glm::vec3(5.0f, 2.0f, 6.0f)
     };
-    
+
     shader.use();
     glUniform1i(texture2Loc, 0);
     shaderTwo.use();
@@ -247,13 +248,22 @@ int main()
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+        //translating each sphere
         for(int i=0; i<=2; i++){
-        glm::mat4 model = glm::mat4(1.0f);
-        //model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-        model = glm::translate(model, spherePositions[i]);
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glDrawArrays(GL_TRIANGLES, 0, sphere.getNumIndices());
+            glm::mat4 model = glm::mat4(1.0f);
+            std::vector<glm::vec3> acc = acceleraton(spherePositions[0], spherePositions[1], spherePositions[2], glm::vec3(pow(10,11), pow(10,11), pow(10,11)));
+            glm::vec3 pos = glm::vec3(acc[i].x, acc[i].y, acc[i].z);
+            spherePositions[i] += pos * glm::vec3(pow(10,8));
+            model = glm::translate(model, spherePositions[i]);
+            //model = glm::translate(model, pos + deltaTime);
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, sphere.getNumIndices());
+
+            std::cout << "sphere" << i << "<" << spherePositions[i].x << ", " << spherePositions[i].y << ", " << spherePositions[i].z << ">" << "\n"; 
+            std::cout << "acc" << i << "<" << pos.x << ", " << pos.y << ", " << pos.z << ">" << "\n"; 
+
         }
+
         //drawing the background
         glBindVertexArray(universeVAO);
         shaderTwo.use();
@@ -281,6 +291,21 @@ int main()
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
+}
+
+std::vector<glm::vec3> acceleraton(glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec3 m)
+{   
+    std::vector<glm::vec3> accs(3);
+    glm::vec3 G = glm::vec3(pow(6.6743*10,-11), pow(6.6743*10,-11), pow(6.6743*10,-11));
+    glm::vec3 acc1 = -G * m * (((pos1-pos2) / glm::pow(abs(pos1-pos2), glm::vec3(3.0f))) + ((pos1 - pos3) / glm::pow(abs(pos1-pos3), glm::vec3(3.0f))));
+    glm::vec3 acc2 = -G * m * (((pos2-pos3) / glm::pow(abs(pos2-pos3), glm::vec3(3.0f))) + ((pos2 - pos1) / glm::pow(abs(pos2-pos1), glm::vec3(3.0f))));
+    glm::vec3 acc3 = -G * m * (((pos3-pos1) / glm::pow(abs(pos3-pos1), glm::vec3(3.0f))) + ((pos3 - pos2) / glm::pow(abs(pos3-pos2), glm::vec3(3.0f))));
+
+    accs[0] = acc1;
+    accs[1] = acc2;
+    accs[2] = acc3;
+    
+    return accs;
 }
 
 void ProcessInput(GLFWwindow *window)
@@ -329,3 +354,4 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
+
